@@ -106,30 +106,35 @@ class GetVisData extends AbstractBase
      *
      * @return array
      */
-    protected function processFacetValues($filters, $fields)
+    protected function processFacetValues($fields, $results)
     {
-        $facets = $this->results->getFullFieldFacets(array_keys($fields));
+        $config = $this->getConfig('searches');
+		// Should we set an upper limit on the count?
+		$maxVizCount = $config['TopRecommendations']['max_vis_count'];
+		if (!is_numeric($maxVizCount)) {
+			unset($maxVizCount);
+		}
+        $facets = $results->getFullFieldFacets(array_keys($fields));
         $retVal = [];
         foreach ($facets as $field => $values) {
-            $filter = $filters[$field][0] ?? null;
-            $newValues = [
-                'data' => [],
-                'min' => $fields[$field][0] > 0 ? $fields[$field][0] : 0,
-                'max' => $fields[$field][1] > 0 ? $fields[$field][1] : 0,
-                'removalURL' => $this->results->getUrlQuery()
-                    ->removeFacet($field, $filter)->getParams(false),
-            ];
+            $newValues = ['data' => []];
             foreach ($values['data']['list'] as $current) {
+            	if (isset($maxVizCount)) {
+            		$count = min([$current['count'], $maxVizCount]);
+            	} else {
+            		$count = $current['count'];
+            	}			
                 // Only retain numeric values!
                 if (preg_match("/^[0-9]+$/", $current['value'])) {
                     $newValues['data'][]
-                        = [$current['value'], $current['count']];
+                        = [$current['value'], $count];
                 }
             }
             $retVal[$field] = $newValues;
         }
         return $retVal;
     }
+
 
     /**
      * Handle a request.
